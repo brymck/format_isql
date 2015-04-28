@@ -1,8 +1,10 @@
+#include <algorithm>
 #include <iostream>
 #include <map>
 #include <stdlib.h>
 #include <string>
 #include <vector>
+#include "csv.hpp"
 #include "try.hpp"
 
 using ::std::string;
@@ -155,6 +157,39 @@ void print_all(
 	}
 }
 
+void print_csv_data(const Datum &datum, const Format &format) {
+	string str;
+	if (format.type == STRING) {
+		str = datum.str;
+	} else {
+		str = datum.alt;
+	}
+	std::cout << str_as_csv(str);
+}
+
+void print_csv(
+		vector<string> headers,
+		vector<vector<Datum>> data,
+		vector<Format> formats
+		) {
+	auto h = headers.begin();
+	std::cout << *h;
+	for (++h; h != headers.end(); ++h) {
+		std::cout << ',' << *h;
+	}
+	std::cout << std::endl;
+	for (auto row = data.begin(); row != data.end(); ++row) {
+		auto d = row->begin();
+		auto f = formats.begin();
+		print_csv_data(*d, *f);
+		for (++d, ++f; d != row->end(); ++d, ++f) {
+			std::cout << ',';
+			print_csv_data(*d, *f);
+		}
+		std::cout << std::endl;
+	}
+}
+
 bool try_convert(
 		Format &format,
 		Datum &datum,
@@ -187,18 +222,28 @@ bool try_convert(
 	return 0;
 }
 
-int main() {
+bool has_command(char **begin, char **end, const std::string &option) {
+	return std::find(begin, end, option) != end;
+}
+
+int main(int argc, char *argv[]) {
 	string header = next_data_line();
 	string separators = next_data_line();
 	string line;
+	bool is_csv = has_command(argv, argv + argc, "--csv");
 
 	vector<size_t> offsets = get_offsets(separators);
 	vector<Format> formats;
 	vector<vector<Datum>> data;
 	vector<string> header_parts = split_at_indices(header, offsets);
+	auto num_func = &try_number;
 
 	for (auto h = header_parts.begin(); h != header_parts.end(); ++h) {
 		formats.push_back(Format{ h->size(), 0, 0, 0, 0, 0, UNKNOWN });
+	}
+
+	if (is_csv) {
+		num_func = &try_long_number;
 	}
 
 	while (getline(std::cin, line)) {
@@ -212,7 +257,7 @@ int main() {
 
 				if (f->type != STRING &&
 						!try_convert(*f, datum, *it, DATETIME, ' ', &try_date) &&
-						!try_convert(*f, datum, *it, NUMBER, '.', &try_number)) {
+						!try_convert(*f, datum, *it, NUMBER, '.', num_func)) {
 					f->type = STRING;
 				}
 
@@ -230,7 +275,11 @@ int main() {
 		f->longest = std::max(f->length, f->header);
 	}
 
-	print_all(header_parts, data, formats);
+	if (is_csv) {
+		print_csv(header_parts, data, formats);
+	} else {
+		print_all(header_parts, data, formats);
+	}
 
 	return 0;
 }

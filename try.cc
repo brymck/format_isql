@@ -113,4 +113,19 @@ std::string try_number(const std::string &str) {
 	}
 }
 
+std::string try_long_number(const std::string &str) {
+	double d;
+	char *endptr;
+	char out[30];
+
+	d = strtod(str.c_str(), &endptr);
+
+	if (*endptr == 0) {
+		sprintf(out, "%.12g", d);
+		return std::string(out);
+	} else {
+		return "";
+	}
+}
+
 // vim:ts=4 sts=4 sw=4 noet
